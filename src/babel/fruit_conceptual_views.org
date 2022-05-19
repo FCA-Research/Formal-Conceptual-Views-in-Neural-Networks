@@ -1,0 +1,102 @@
+#+TITLE: Setup: Compute Fruit Conceptual Views
+#+PROPERTY: header-args      :tangle "../tangled/fruit_conceptual_views.py"
+* Fruit360 Conceptual Views
+** Imports
+#+BEGIN_SRC python
+import os
+import pandas as pd
+import numpy as np
+from tensorflow.keras.models import Model
+#+END_SRC
+
+#+BEGIN_SRC python
+if not os.path.exists("scales/fruit_class"):
+    os.makedirs("scales/fruit_class")
+if not os.path.exists("scales/fruit_obj"):
+    os.makedirs("scales/fruit_obj")
+#+END_SRC
+
+** Setup
+Import Methods to Compute Views
+#+INCLUDE: "./scaling.org::#scaling" :only-contents t
+#+INCLUDE: "./scaling.org::#views" :only-contents t
+#+INCLUDE: "./train_fruits.org::#imports" :only-contents t
+#+INCLUDE: "./train_fruits.org::#augment" :only-contents t
+#+INCLUDE: "./train_fruits.org::#fruitnetwork" :only-contents t
+#+INCLUDE: "./train_fruits.org::#fruitnetwork16" :only-contents t
+#+INCLUDE: "./train_fruits.org::#trainsetup" :only-contents t
+
+*** Models
+#+BEGIN_SRC python
+base_32 = network(input_shape=input_shape, num_classes=num_classes)
+base_32.load_weights(f"{output_dir}/base-32-tanh/model.h5")
+base_16 = network16(input_shape=input_shape, num_classes=num_classes)
+base_16.load_weights(f"{output_dir}/base-16-tanh/model.h5")
+
+vgg16_32 = tf.keras.models.load_model("fruit_models/vgg16-32-tanh/model.h5")
+vgg16_16 = tf.keras.models.load_model("fruit_models/vgg16-16-tanh/model.h5")
+
+resnet50_32 = tf.keras.models.load_model("fruit_models/resnet-32-tanh/model.h5")
+resnet50_16 = tf.keras.models.load_model("fruit_models/resnet-16-tanh/model.h5")
+
+incv3_32 = tf.keras.models.load_model("fruit_models/incv3-32-tanh/model.h5")
+incv3_16 = tf.keras.models.load_model("fruit_models/incv3-16-tanh/model.h5")
+
+effb0_32 = tf.keras.models.load_model("fruit_models/effb0-32-tanh/model.h5")
+effb0_16 = tf.keras.models.load_model("fruit_models/effb0-16-tanh/model.h5")
+#+END_SRC
+** Conceptual Views
+Data Generator
+#+BEGIN_SRC python
+data_folder = "image-data/fruit360/"
+#+END_SRC
+*** Base
+#+BEGIN_SRC python
+compute_class_views(base_32,"base_32",data="fruit",classes=labels)
+compute_object_views(base_32,"base_32",data_folder=data_folder,data="fruit")
+compute_model_predictions(base_32,"base_32",data_folder=data_folder,data="fruit")
+
+compute_class_views(base_16,"base_16",data="fruit",classes=labels)
+compute_object_views(base_16,"base_16",data_folder=data_folder,data="fruit")
+compute_model_predictions(base_16,"base_16",data_folder=data_folder,data="fruit")
+#+END_SRC
+*** VGG16
+#+BEGIN_SRC python
+compute_class_views(vgg16_32,"vgg16_32",data="fruit",classes=labels)
+compute_object_views(vgg16_32,"vgg16_32",data_folder=data_folder,data="fruit")
+compute_model_predictions(vgg16_32,"vgg16_32",data_folder=data_folder,data="fruit")
+
+compute_class_views(vgg16_16,"vgg16_16",data="fruit")
+compute_object_views(vgg16_16,"vgg16_16",data_folder=data_folder,data="fruit")
+compute_model_predictions(vgg16_16,"vgg16_16",data_folder=data_folder,data="fruit")
+#+END_SRC
+*** ResNet50
+#+BEGIN_SRC python
+compute_class_views(resnet50_32,"resnet50_32",data="fruit",classes=labels)
+compute_object_views(resnet50_32,"resnet50_32",data_folder=data_folder,data="fruit")
+compute_model_predictions(resnet50_32,"resnet50_32",data_folder=data_folder,data="fruit")
+
+compute_class_views(resnet50_16,"resnet50_16",data="fruit")
+compute_object_views(resnet50_16,"resnet50_16",data_folder=data_folder,data="fruit")
+compute_model_predictions(resnet50_16,"resnet50_16",data_folder=data_folder,data="fruit")
+#+END_SRC
+*** IncV3
+#+BEGIN_SRC python
+compute_class_views(incv3_32,"incv3_32",data="fruit",classes=labels)
+compute_object_views(incv3_32,"incv3_32",data_folder=data_folder,data="fruit")
+compute_model_predictions(incv3_32,"incv3_32",data_folder=data_folder,data="fruit")
+
+compute_class_views(incv3_16,"incv3_16",data="fruit")
+compute_object_views(incv3_16,"incv3_16",data_folder=data_folder,data="fruit")
+compute_model_predictions(incv3_16,"incv3_16",data_folder=data_folder,data="fruit")
+#+END_SRC
+*** EffB0
+#+BEGIN_SRC python
+compute_class_views(effb0_32,"effb0_32",data="fruit",classes=labels)
+compute_object_views(effb0_32,"effb0_32",data_folder=data_folder,data="fruit")
+compute_model_predictions(effb0_32,"effb0_32",data_folder=data_folder,data="fruit")
+
+compute_class_views(effb0_16,"effb0_16",data="fruit")
+compute_object_views(effb0_16,"effb0_16",data_folder=data_folder,data="fruit")
+compute_model_predictions(effb0_16,"effb0_16",data_folder=data_folder,data="fruit")
+#+END_SRC

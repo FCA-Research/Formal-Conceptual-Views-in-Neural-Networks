@@ -1,0 +1,110 @@
+* Conceptual View Methods
+** Scaling
+:PROPERTIES:
+:CUSTOM_ID: scaling
+:END:
+*** Imports
+#+BEGIN_SRC python
+import numpy as np
+import pandas as pd
+#+END_SRC
+*** Conceptual Scaling
+
+#+BEGIN_SRC python
+def make_scale(w,delta=np.zeros(4096,)):
+     """The many-valued scale w and a delta array that specifies the
+     scaling thresholds. Our experiments show good results for delta=0
+     for all attributes. Note that w.shape[1]>delta.shape 
+     """
+     g,m = w.shape
+     pscale = pd.DataFrame([[1 if w.iloc[i,j]> delta[j] else 0 for j in range(m)] for i in range(g)]
+                           ,index =w.index
+                           ,columns= ["+%i"%(int(c)) for c in w])
+     nscale = pd.DataFrame([[1 if w.iloc[i,j]<= delta[j] else 0 for j in range(m)] for i in range(g)]
+                           ,index =w.index
+                           ,columns= ["-%i"%(int(c)) for c in w])
+     scale = pd.concat([pscale,nscale],axis=1)
+     return scale
+#+END_SRC
+** Compute Views from Models
+:PROPERTIES:
+:CUSTOM_ID: views
+:END:
+*** Imports
+#+BEGIN_SRC python
+import pandas as pd
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import tensorflow as tf
+from tensorflow.keras.models import Model
+#+END_SRC
+*** ImageNet Classes
+#+BEGIN_SRC python
+f = open("imagenet-classes.txt", "r")
+imagenet_classes = [c[:-1] for c in f]
+#+END_SRC
+*** Class View
+#+BEGIN_SRC python
+def compute_class_views(model, name, lhl=-1,data="imagenet",classes=imagenet_classes):
+    """Computes the many-valued and symbolic conceptual view for each model.
+          - model is the neural network architecture and 
+          - lhl is the index of the last hidden layer.
+    """
+    if model.layers[lhl].bias is not None:
+        model_w,model_b = model.layers[lhl].trainable_weights
+    else:
+        model_w, = model.layers[lhl].trainable_weights
+    # MobilNet needs to be reshaped
+    if len(model_w.shape)==4:
+        model_w = model_w.numpy().reshape(model_w.shape[2:4])
+        model_b = model_b.numpy().reshape(model_b.shape[2:4])
+    
+    model_w = pd.DataFrame(model_w.numpy().T,index=classes)
+    model_w_bin = make_scale(model_w)
+    
+    if model.layers[lhl].bias is not None:
+        model_b = pd.DataFrame(model_b.numpy().T,index=classes)
+        model_b.to_csv(f"scales/{data}_class/{name}_b.csv")    
+
+    model_w.to_csv(f"scales/{data}_class/{name}_w.csv")
+    model_w_bin.to_csv(f"scales/{data}_class/{name}_w_bin.csv")
+    return model_w, model_w_bin
+#+END_SRC
+
+*** Object Views
+#+BEGIN_SRC python
+def embedding(model,lhl=-1):
+    if lhl==-3: # for mobilnetv1
+        out = tf.keras.layers.Reshape((1024,))(model.layers[lhl-1].output)
+        E = Model(model.layers[0].input,out)
+    else:
+        E = Model(model.layers[0].input,model.layers[lhl-1].output)
+    return E
+
+def compute_object_views(model,name,data_folder,lhl=-1,data="imagenet"):
+    E = embedding(model,lhl)
+    
+    input_shape = E.input_shape[1:3]
+    
+    test_datagen = ImageDataGenerator()
+    test_gen = test_datagen.flow_from_directory(data_folder, target_size=input_shape, shuffle=False, subset=None, classes=None)
+
+    model_o = pd.DataFrame(E.predict(test_gen))
+    model_o.to_csv(f"scales/{data}_obj/{name}_o.csv")
+
+    model_o_bin = make_scale(model_o)
+    model_o_bin.to_csv(f"scales/{data}_obj/{name}_o_bin.csv")
+    return model_o, model_o_bin
+#+END_SRC
+
+*** Model Predictions
+#+BEGIN_SRC python
+def compute_model_predictions(model,name,data_folder,data="imagenet"):
+    input_shape = model.input_shape[1:3]
+
+    test_datagen = ImageDataGenerator()
+    test_gen = test_datagen.flow_from_directory(data_folder, target_size=input_shape, shuffle=False, subset=None, classes=None)
+
+    model_pred = pd.DataFrame(model.predict(test_gen)).apply(lambda r : list(r).index(r.max()),axis=1)
+    model_pred.to_csv(f"scales/{data}_class/{name}_pred.csv")
+    return model_pred
+#+END_SRC

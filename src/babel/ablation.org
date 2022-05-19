@@ -1,0 +1,117 @@
+#+TITLE: Experiment: Ablation Study the Activation Function and Number of Neurons
+#+PROPERTY: header-args      :tangle "../tangled/ablation.py"
+
+* Ablation Study the Activation Function and Number of Neurons
+** Imports
+#+INCLUDE: "./train_fruits.org::#imports" :only-contents t
+*** Training Setup
+#+INCLUDE: "./train_fruits.org::#trainsetup" :only-contents t
+*** Model
+#+INCLUDE: "./train_fruits.org::#augment" :only-contents t
+#+INCLUDE: "./train_fruits.org::#fruitnetwork" :only-contents t
+*** Train and Evaluate
+#+INCLUDE: "./train_fruits.org::#train" :only-contents t
+*** Compute Views
+#+INCLUDE: "./scaling.org::#views" :only-contents t
+*** Compute Fidelities
+#+INCLUDE: "./view_evaluation.org::#fidelity" :only-contents t
+#+INCLUDE: "view_evaluation.org::#separation" :only-contents t
+** Ablation Study
+*** Setup
+Imports
+#+BEGIN_SRC python
+import pickle
+import os
+#+END_SRC
+Parameters
+#+BEGIN_SRC python
+activation_list=["swish","tanh","relu","linear"]
+neurons = [4,5,6,7,8,9]# 16,32,64,128,256,512
+#+END_SRC
+*** Train Models
+#+BEGIN_SRC python
+if not os.path.exists("scales/ablation"):
+    os.makedirs("scales/ablation")
+#+END_SRC
+
+#+BEGIN_SRC python
+for a in activation_list:
+    for n in neurons:
+        # Setting
+        print(a)
+        print(n)
+        
+        # Computed Views
+        weights = []
+        embedd = []
+        weights_bin = []
+        embedd_bin = []
+        pred = []
+
+        # ten runs
+        for i in range(10):
+            print(f"run {i}")
+            tf.random.set_seed(i)
+            # Make model and train
+            model = network(input_shape=input_shape, num_classes=num_classes,activation=a,neurons_second_last=(10+n)//2,neurons_last=n)
+            train_and_evaluate_model(model, name=f"{a}-{n}-activation",epochs=20)
+            
+            # Compute views
+            model_w, model_w_bin = compute_class_views(model,f"{a}-{n}-{i}-activation", lhl=-1,data="ablation")
+            model_o, model_o_bin = compute_object_views(model,f"{a}-{n}-{i}-activation",test_gen,lhl=-1,data="ablation")
+            model_pred = compute_model_predictions(model,f"{a}-{n}-{i}-activation",test_gen,data="ablation")
+            
+            # save results
+            weights.append(model_w)
+            weights_bin.append(model_w_bin)
+
+            embedd.append(model_o)
+            embedd_bin.append(model_o_bin)
+
+            pred.append(model_pred)
+    
+        # Dump Models
+        with open(f"scales/ablation_class/weights-{a}-{n}.pkl", 'wb') as fh:
+            pickle.dump(weights, fh)
+        with open(f"scales/ablation_class/weights-bin-{a}-{n}.pkl", 'wb') as fh:
+            pickle.dump(weights_bin, fh)
+
+        with open(f"scales/ablation_obj/O-{a}-{n}.pkl", 'wb') as fh:
+            pickle.dump(embedd, fh)
+        with open(f"scales/ablation_obj/O-bin-{a}-{n}.pkl", 'wb') as fh:
+            pickle.dump(embedd_bin, fh)
+
+        with open(f"scales/ablation_class/pred-{a}-{n}.pkl", 'wb') as fh:
+            pickle.dump(pred, fh)
+#+END_SRC
+*** Compute Fidelities
+#+BEGIN_SRC python
+for a in activation_list:
+    for n in neurons:
+        weights = pickle.load(open(f"scales/ablation_class/weights-{a}-{n}.pkl",'rb'))
+        weights_bin = pickle.load(open(f"scales/ablation_class/weights-bin-{a}-{n}.pkl",'rb'))
+        
+        embedd = pickle.load(open(f"scales/ablation_obj/O-{a}-{n}.pkl",'rb'))
+        embedd_bin = pickle.load(open(f"scales/ablation_obj/O-bin-{a}-{n}.pkl",'rb'))      
+
+        pred = pickle.load(open(f"scales/ablation_class/pred-{a}-{n}.pkl",'rb'))
+
+        fid = [fidelity(embedd[i],weights[i],pred[i]) for i in range(len(weights))]
+        fid_euclid = np.array([f[0] for f in fid])
+        fid_cos = np.array([f[1] for f in fid])
+
+        fid_bin = [fidelity(embedd_bin[i],weights_bin[i],pred[i]) for i in range(len(weights))]
+        fid_bin_euclid = np.array([f[0] for f in fid_bin])
+        fid_bin_cos = np.array([f[1] for f in fid_bin])
+
+        sep = [separation(weights_bin[i])  for i in range(len(weights))]
+        sep = np.array(sep)
+        
+        print(f"Activation {a} Neurons Many-Valued {n} Euclid Fid {fid_euclid.mean()}+-{fid.std()}")
+        print(f"Activation {a} Neurons Symbolic {n} Euclid Fid {fid_bin_euclid.mean()}+-{fid_bin.std()}")
+
+        print(f"Activation {a} Neurons Many-Valued {n} Cos Fid {fid_cos.mean()}+-{fid.std()}")
+        print(f"Activation {a} Neurons Symbolic {n} Cos Fid {fid_bin_cos.mean()}+-{fid_bin.std()}")
+
+        print(f"Activation {a} Neurons Symbolic {n} Separation {separation.mean()}+-{separation.std()}")
+#+END_SRC

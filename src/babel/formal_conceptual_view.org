@@ -1,0 +1,341 @@
+#+TITLE: Experiment: Formal Conceptual Simitlarity
+#+PROPERTY: header-args      :tangle "../tangled/formal_conceptual_view.clj"
+
+* Formal Conceptual Similarity
+** Imports
+#+BEGIN_SRC clojure :tangle yes
+(ns obstsalat
+  (:require [conexp.fca.contexts :as fast]
+            [conexp.io.contexts :as fast]
+            [conexp.fca.fast :as fast]
+            [conexp.gui.draw :refer :all]
+            [conexp.layouts.base :refer :all]
+            [conexp.layouts.freese :refer :all]
+            [clojure.string :as string]
+            [clojure.core.async :as async]))
+#+END_SRC
+** Input
+For drawing with covering elements use the namespace from the decision tree scaling. 
+** Read Data
+#+BEGIN_SRC clojure :session :results silent  :tangle yes
+(def r 
+  (read-context
+   "scales/fruit_class/resnet_16_w_bin.csv" 
+   :named-binary-csv))
+#+END_SRC
+
+*** Interesting Object to draw
+Interesting objects to draw are 
+"Apple Pink Lady" "Apple Red 1",
+"Cherry 1" "Plum"
+** Helper Methods
+*** Positive Context
+#+BEGIN_SRC clojure  :tangle yes
+(defn positive-ctx
+  [ctx]
+  (make-context (objects ctx)
+                (filter #(= "+" (str (first %))) (attributes ctx))
+                (incidence ctx)))
+#+END_SRC
+*** object concept filter
+#+BEGIN_SRC clojure :session :results silent  :tangle yes
+(defn object-concept-lattice-filter
+  "Computes all concepts containing object g and their covering
+  concepts."
+  [ctx g]
+  (let [first-C [(context-object-closure ctx #{g}) 
+                 (object-derivation ctx #{g})]]
+    (loop [BV #{first-C} 
+           queue #{first-C}]
+      (if (empty? queue) 
+        BV
+        (let [C (first queue)]
+          (let [covering-C (direct-upper-concepts ctx C)
+                ;; those not containing g can be added since they are in cover with a concept containing c
+                new-C (difference covering-C BV) 
+                ;; only continue with those that contain g to ensure selection criteria
+                ]
+            (recur (into BV new-C) (into (disj queue C) new-C))))))))
+#+END_SRC
+** Sizes
+Here we use pcbo implementation to compute all concepts. Either put a
+pcbo executable in your path or remove ~:pcbo~.
+
+#+BEGIN_SRC clojure  :tangle yes
+(doseq [f files]
+  (let [ctx (read-context f :named-binary-csv)]
+    (println (last (string/split f #"/"))
+             (count (fast/concepts :pcbo ctx)))))
+
+(doseq [f files]
+  (let [ctx (read-context f :named-binary-csv)
+        Pos (fn [A] (filter #(= "+" (-> % first str)) A))
+        ctx (make-context (objects ctx)
+                          (-> ctx attributes Pos)
+                          (incidence-relation ctx))]
+    (println (last (string/split f #"/")) " Pos "
+             (count (fast/concepts :pcbo ctx)))))
+
+(doseq [f files32]
+  (let [ctx (read-context f :named-binary-csv)]
+    (println (last (string/split f #"/"))
+             (count (fast/concepts :pcbo ctx)))))
+
+(doseq [f files32]
+  (let [ctx (read-context f :named-binary-csv)
+        Pos (fn [A] (filter #(= "+" (-> % first str)) A))
+        ctx (make-context (objects ctx)
+                          (-> ctx attributes Pos)
+                          (incidence-relation ctx))]
+    (println (last (string/split f #"/")) " Pos "
+             (count (fast/concepts :pcbo ctx)))))
+#+END_SRC
+
+|----------+--------+------+---------+--------|
+| Model    |   N 16 |      |    N 32 |        |
+|          |    All |  Pos |     All |    Pos |
+|----------+--------+------+---------+--------|
+|----------+--------+------+---------+--------|
+| base     | 130969 | 6517 | 3192044 | 155416 |
+| Resnet50 | 133130 | 5872 | 3803799 | 165009 |
+| vgg16    | 126487 | 5200 | 3498829 | 193516 |
+| incv3    | 134100 | 5670 | 3782226 | 198152 |
+| effb0    | 132403 | 6573 | 3767964 | 150884 |
+|----------+--------+------+---------+--------|
+** Formal Conceptual Similarity
+*** Files
+#+BEGIN_SRC clojure :tangle yes
+(def directory 
+   (clojure.java.io/file "scales/fruit_class" ))
+(def files 
+       (filter #(= "16_w_bin.csv" 
+                   (subs % 
+                         (- (count %) (count "16_w_bin.csv"))))
+       (map #(.getAbsolutePath %)(file-seq directory))))
+(def files32
+       (filter #(= "32_w_bin.csv" 
+                   (subs % 
+                         (- (count %) (count "32_w_bin.csv"))))
+       (map #(.getAbsolutePath %)(file-seq directory))))
+#+END_SRC
+
+*** Similarities
+#+BEGIN_SRC clojure :tangle yes
+(doseq [f files]
+   (let [ctx (read-context f :named-binary-csv)
+         ctx+ (positive-ctx ctx)]
+         (println f "\n")
+         (let [common #(count (intersection (set %1) (set %2)))
+               cherry (future (object-concept-lattice-filter ctx "Cherry 1"))
+               cherry+ (future (object-concept-lattice-filter ctx+ "Cherry 1"))
+               plum (future (object-concept-lattice-filter ctx "Plum"))
+               plum+ (future (object-concept-lattice-filter ctx+ "Plum"))
+               pink-lady (future(object-concept-lattice-filter ctx "Apple Pink Lady"))
+               pink-lady+ (future(object-concept-lattice-filter ctx+ "Apple Pink Lady"))
+               apple-red (future(object-concept-lattice-filter ctx "Apple Red 1"))
+               apple-red+ (future(object-concept-lattice-filter ctx+ "Apple Red 1"))]
+               (println "Fruit,Filter,Cherry,Plum,Pink Lady,Apple Red")
+               (let [cur @cherry+] (println "Cherry+,"(count cur)","(common cur @cherry+)","(common cur @plum+)","(common cur @pink-lady+)","(common cur @apple-red+)))
+               (let [cur @plum+] (println "Plum+,"(count cur)","(common cur @cherry+)","(common cur @plum+)","(common cur @pink-lady+)","(common cur @apple-red+)))
+               (let [cur @pink-lady+] (println "Pink Lady+,"(count cur)","(common cur @cherry+)","(common cur @plum+)","(common cur @pink-lady+)","(common cur @apple-red+)))
+               (let [cur @apple-red+] (println "Apple Red+,"(count cur)","(common cur @cherry+)","(common cur @plum+)","(common cur @pink-lady+)","(common cur @apple-red+)))
+               (let [cur @cherry] (println "Cherry,"(count cur)","(common cur @cherry)","(common cur @plum)","(common cur @pink-lady)","(common cur @apple-red)))
+               (let [cur @plum] (println "Plum,"(count cur)","(common cur @cherry)","(common cur @plum)","(common cur @pink-lady)","(common cur @apple-red)))
+               (let [cur @pink-lady] (println "Pink Lady,"(count cur)","(common cur @cherry)","(common cur @plum)","(common cur @pink-lady)","(common cur @apple-red)))
+               (let [cur @apple-red] (println "Apple Red,"(count cur)","(common cur @cherry)","(common cur @plum)","(common cur @pink-lady)","(common cur @apple-red))))))
+#+END_SRC
+
+
+scales/effb0_16_w_bin.csv 
+
+| Fruit      | Filter | Cherry | Plum | Pink Lady | Apple Red |
+|------------+--------+--------+------+-----------+-----------|
+| Cherry+    |     60 |     60 |    2 |         1 |         1 |
+| Plum+      |     32 |      2 |   32 |         4 |         4 |
+| Pink Lady+ |     32 |      1 |    4 |        32 |        32 |
+| Apple Red+ |     32 |      1 |    4 |        32 |        32 |
+| Cherry     |   6195 |   6195 |  111 |        32 |        32 |
+| Plum       |   4940 |    111 | 4940 |       553 |       553 |
+| Pink Lady  |   6393 |     32 |  553 |      6393 |      6393 |
+| Apple Red  |   6393 |     32 |  553 |      6393 |      6393 |
+
+scales/resnet_16_w_bin.csv 
+
+| Fruit      | Filter | Cherry | Plum | Pink Lady | Apple Red |
+|------------+--------+--------+------+-----------+-----------|
+| Cherry+    |    917 |    917 |   16 |       116 |         4 |
+| Plum+      |    120 |     16 |  120 |         8 |         4 |
+| Pink Lady+ |    212 |    116 |    8 |       212 |         8 |
+| Apple Red+ |     16 |      4 |    4 |         8 |        16 |
+| Cherry     |   6127 |   6127 |   62 |       956 |        32 |
+| Plum       |   6149 |     62 | 6149 |       123 |       393 |
+| Pink Lady  |   6237 |    956 |  123 |      6237 |       651 |
+| Apple Red  |   6317 |     32 |  393 |       651 |      6317 |
+
+scales/vgg16_16_w_bin.csv 
+
+| Fruit      | Filter | Cherry | Plum | Pink Lady | Apple Red |
+|------------+--------+--------+------+-----------+-----------|
+| Cherry+    |     60 |     60 |    8 |        16 |         8 |
+| Plum+      |     32 |      8 |   32 |        16 |        16 |
+| Pink Lady+ |    233 |     16 |   16 |       233 |        32 |
+| Apple Red+ |    221 |      8 |   16 |        32 |       221 |
+| Cherry     |   5956 |   5956 |  958 |       620 |       227 |
+| Plum       |   5866 |    958 | 5866 |       966 |       897 |
+| Pink Lady  |   7068 |    620 |  966 |      7068 |       621 |
+| Apple Red  |   6193 |    227 |  897 |       621 |      6193 |
+
+scales/incv3_16_w_bin.csv 
+
+| Fruit      | Filter | Cherry | Plum | Pink Lady | Apple Red |
+|------------+--------+--------+------+-----------+-----------|
+| Cherry+    |    374 |    374 |  374 |        32 |        32 |
+| Plum+      |    374 |    374 |  374 |        32 |        32 |
+| Pink Lady+ |    116 |     32 |   32 |       116 |        59 |
+| Apple Red+ |    346 |     32 |   32 |        59 |       346 |
+| Cherry     |   5678 |   5678 | 5678 |       607 |       216 |
+| Plum       |   5678 |   5678 | 5678 |       607 |       216 |
+| Pink Lady  |   6129 |    607 |  607 |      6129 |      1390 |
+| Apple Red  |   5741 |    216 |  216 |      1390 |      5741 |
+
+scales/base16_w_bin.csv 
+
+| Fruit      | Filter | Cherry | Plum | Pink Lady | Apple Red |
+|------------+--------+--------+------+-----------+-----------|
+| Cherry+    |     64 |     64 |   32 |         2 |         8 |
+| Plum+      |    396 |     32 |  396 |         4 |        16 |
+| Pink Lady+ |     32 |      2 |    4 |        32 |         4 |
+| Apple Red+ |     60 |      8 |   16 |         4 |        60 |
+| Cherry     |   5572 |   5572 |  908 |       115 |       526 |
+| Plum       |   6104 |    908 | 6104 |        62 |       348 |
+| Pink Lady  |   5895 |    115 |   62 |      5895 |       333 |
+| Apple Red  |   5235 |    526 |  348 |       333 |      5235 |
+
+**** Values for N=16, positives and all
+effb0
+|------+------+------+------|
+| 6195 |  111 |   32 |   32 |
+|------+------+------+------|
+|  111 | 4940 |  553 |  553 |
+|------+------+------+------|
+|   32 |  553 | 6393 | 6393 |
+|------+------+------+------|
+|   32 |  553 | 6393 | 6393 |
+|------+------+------+------|
+
+resnet
+|------+------+------+------|
+| 6127 |   62 |  956 |   32 |
+|------+------+------+------|
+|   62 | 6149 |  123 |  393 |
+|------+------+------+------|
+|  956 |  123 | 6237 |  651 |
+|------+------+------+------|
+|   32 |  393 |  651 | 6317 |
+|------+------+------+------|
+
+vgg16
+|------+------+------+------|
+| 5956 |  958 |  620 |  227 |
+|------+------+------+------|
+|  958 | 5866 |  966 |  897 |
+|------+------+------+------|
+|  620 |  966 | 7068 |  621 |
+|------+------+------+------|
+|  227 |  897 |  621 | 6193 |
+|------+------+------+------|
+
+incv3
+|------+------+------+------|
+| 5678 | 5678 |  607 |  216 |
+|------+------+------+------|
+| 5678 | 5678 |  607 |  216 |
+|------+------+------+------|
+|  607 |  607 | 6129 | 1390 |
+|------+------+------+------|
+|  216 |  216 | 1390 | 5741 |
+|------+------+------+------|
+
+base
+|------+------+------+------|
+| 5572 |  908 |  115 |  526 |
+|------+------+------+------|
+|  908 | 6104 |   62 |  348 |
+|------+------+------+------|
+|  115 |   62 | 5895 |  333 |
+|------+------+------+------|
+|  526 |  348 |  333 | 5235 |
+|------+------+------+------|
+
+effb0 positives
+|----+----+----+----|
+| 60 |  2 |  1 |  1 |
+|----+----+----+----|
+|  2 | 32 |  4 |  4 |
+|----+----+----+----|
+|  1 |  4 | 32 | 32 |
+|----+----+----+----|
+|  1 |  4 | 32 | 32 |
+|----+----+----+----|
+
+resnet 50 positives
+|-----+-----+-----+----|
+| 917 |  16 | 116 |  4 |
+|-----+-----+-----+----|
+|  16 | 120 |   8 |  4 |
+|-----+-----+-----+----|
+| 116 |   8 | 212 |  8 |
+|-----+-----+-----+----|
+|   4 |   4 |   8 | 16 |
+|-----+-----+-----+----|
+
+vgg16 positives
+|----+----+-----+-----|
+| 60 |  8 |  16 |   8 |
+|----+----+-----+-----|
+|  8 | 32 |  16 |  16 |
+|----+----+-----+-----|
+| 16 | 16 | 233 |  32 |
+|----+----+-----+-----|
+|  8 | 16 |  32 | 221 |
+|----+----+-----+-----|
+
+
+incv3 positives
+|-----+-----+-----+-----|
+| 374 | 374 |  32 |  32 |
+|-----+-----+-----+-----|
+| 374 | 374 |  32 |  32 |
+|-----+-----+-----+-----|
+|  32 |  32 | 116 |  59 |
+|-----+-----+-----+-----|
+|  32 |  32 |  59 | 346 |
+|-----+-----+-----+-----|
+
+base positives
+|----+-----+----+----|
+| 64 |  32 |  2 |  8 |
+|----+-----+----+----|
+| 32 | 396 |  4 | 16 |
+|----+-----+----+----|
+|  2 |   4 | 32 |  4 |
+|----+-----+----+----|
+|  8 |  16 |  4 | 60 |
+|----+-----+----+----|
+
+** Lattice drawing
+#+BEGIN_SRC clojure :tangle yes
+(def vgg16-plum+ (let [f "scales/fruit_class/vgg16_16_w_bin.csv"]
+                               (let [ctx (read-context f :named-binary-csv)
+                                     ctx+ (positive-ctx ctx)]
+                                 (object-concept-lattice-filter ctx+ "Plum"))))
+
+(draw-layout
+     (update-valuations 
+      (freese-layout 
+       (make-lattice-nc 
+       vgg16-plum+
+        (fn [[a b] [a2 b2]] 
+          (subset? a a2))))
+       (fn [[A B]] (map #(apply str (map first (clojure.string/split % #" "))) (intersection #{"Cherry 1" "Apple Pink Lady" "Apple Red 1"} A)))))
+#+END_SRC

@@ -1,0 +1,39 @@
+#+TITLE: Experiment: ImageNet Statistics
+#+PROPERTY: header-args      :tangle "../tangled/statistics.py"
+
+* Compute Statistics of each Conceptual View of the ImageNet Models
+** Imports
+#+BEGIN_SRC python
+import pandas as pd
+import os
+#+END_SRC
+Get Models
+#+INCLUDE: "./view_evaluation.org::#models" :only-contents t
+Separation
+#+INCLUDE: "./view_evaluation.org::#separation" :only-contents t
+** Init
+#+BEGIN_SRC python
+stats = pd.DataFrame(models)
+#+END_SRC
+** Neurons
+#+BEGIN_SRC python
+stats["neurons"] = [to_class_scale(m).shape[1] for m in models]
+stats.set_index(0,inplace=True)
+#+END_SRC
+** Separation
+#+BEGIN_SRC python
+stats["sep"] = [classes_seperation(to_class_scale(m)) for m in models]
+#+END_SRC
+** Mean and Std
+#+BEGIN_SRC python
+stats["w"] = [(to_class_scale(m).values.mean(),to_class_scale(m).values.std()) 
+              for m in models]
+stats["b"] = [(to_bias_scale(m).values.mean(),to_class_scale(m).values.std()) 
+              for m in models]
+stats["o"] = [(to_object_scale(m).values.mean(),to_object_scale(m).values.std()) 
+              for m in models]
+#+END_SRC
+** Save
+#+BEGIN_SRC python
+stats.to_csv("scales/stats_imagenet.csv")
+#+END_SRC

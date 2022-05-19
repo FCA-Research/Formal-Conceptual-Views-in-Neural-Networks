@@ -1,0 +1,38 @@
+#+TITLE: Experiment: Fidelity
+#+PROPERTY: header-args      :tangle "../tangled/fidelity.py"
+
+* Compute Fidelity ImageNet
+** Imports
+#+INCLUDE: "./view_evaluation.org::#models" :only-contents t
+
+#+INCLUDE: "./view_evaluation.org::#fidelity" :only-contents t
+** Fidelity Many-Values
+#+BEGIN_SRC python
+for m in models:
+    fidelity(to_obj_scale(m),to_class_scale(m),to_pred_scale(m))
+#+END_SRC
+
+** Fidelity Symbolic
+#+BEGIN_SRC python
+for m in models:
+    fidelity(to_obj_bin_scale(m),to_class_bin_scale(m),to_pred_scale(m))
+#+END_SRC
+
+* Compute Fidelity Fruit
+** Imports
+#+INCLUDE: "./view_evaluation.org::#fruitmodels" :only-contents t
+
+#+INCLUDE: "./view_evaluation.org::#fidelity" :only-contents t
+#+INCLUDE: "./view_evaluation.org::#separation" :only-contents t
+** Fidelity Many-Values
+#+BEGIN_SRC python
+for m in models:
+    fidelity(to_obj_scale(m),to_class_scale(m),to_pred_scale(m))
+#+END_SRC
+
+** Fidelity Symbolic
+#+BEGIN_SRC python
+for m in models:
+    fidelity(to_obj_bin_scale(m),to_class_bin_scale(m),to_pred_scale(m))
+    separation(to_class_bin_scale(m))
+#+END_SRC

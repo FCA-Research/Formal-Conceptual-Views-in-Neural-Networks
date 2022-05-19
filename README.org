@@ -1,0 +1,246 @@
+* Formal Conceptual Views in Neural Networks
+This is the repository to the paper ~Formal Conceptual Views in Neural Networks~.
+
+With the present work, we introduce two notions for conceptual views
+of a neural network, specifically a many-valued and a symbolic
+view. Both provide novel analysis methods to enable a human AI analyst
+to grasp deeper insights into the knowledge that is captured by the
+neurons of a network.
+
+#+ATTR_ORG: :width 800
+[[file:pics/pipeline.png]]
+
+We test the expressivity of our novel views through different
+experiments on the ImageNet and Fruit-360 data set. Furthermore, we
+show to which extent the views allow to quantify the conceptual
+similarity of different learning architectures. Finally, we
+demonstrate how conceptual views can be applied for abductive
+learning of human comprehensible rules from neurons.  In summary,
+with our work, we contribute to the most relevant task of globally
+explaining neural networks models.
+
+** Table of Contents
+- [[#requirements][Requirements: Python and Clojure]]
+- [[#data][Data: ImageNet and Fruit-360]]
+- [[#setup][Setup]]
+  + [[#imagenetviews][Compute ImageNet Many-Valued and Symbolic Conceptual Views]]
+  + [[#fruitviews][Compute Fruit-360 Many-Valued and Symbolic Conceptual Views]]
+- [[#eval][Evaluate Many-Valued Conceptual View]]
+  + [[#stats][Statistics on the Many-Valued Views]]
+  + [[#imagenetfid][Fidelity of Many-Valued Conceptual views]]
+  + [[#imagenetsim][Similarity of Models using Many-Valued conceptual views]]
+- [[#sym][Symbolic Conceptual Views]]
+  + [[#ablation][Ablation Study: Activation Function and Number of Neurons]]
+  + [[#symfid][Fidelity of Symbolic Conceptual Views]]
+  + [[#fca][Similarity of and Zoom in on Symbolic Conceptual Views using FCA]]
+
+
+** Requirements
+:PROPERTIES:
+:CUSTOM_ID: requirements
+:END:
+This project uses functionality from python for the machine learning
+parts and the [[https://github.com/tomhanika/conexp-clj][conexp-clj]] framework for the methods from formal concept
+analysis.
+*** Python
+The used packages and versions can be found in [[file:requirements.txt][requirements.txt]]. We
+used Python version 3.7.3.
+
+#+BEGIN_SRC shell
+pip install -r requirements.txt
+#+END_SRC
+*** Clojure
+We used Clojure version 1.10.1 and conexp-clj version 2.3.0. There
+are two options to evaluate the Clojure code. The first is to build
+the most recent version from the repository using [[https://leiningen.org/][Leiningen]].
+#+BEGIN_SRC shell
+git clone https://github.com/tomhanika/conexp-clj
+cd conexp-clj
+lein uberjar
+#+END_SRC
+
+A standalone jar can then be found at
+~/builds/uberjar/conexp-clj-VERSION-SNAPSHOT-standalone.jar~ and
+executing it will start a REPL which can be used to execute the
+clojure code.
+
+#+BEGIN_SRC shell
+java -jar /builds/uberjar/conexp-clj-VERSION-SNAPSHOT-standalone.jar
+#+END_SRC
+
+Alternatively, a recent executable can be downloaded from the [[https://mvnrepository.com/artifact/conexp-clj/conexp-clj][Maven]] repository.
+** Data
+:PROPERTIES:
+:CUSTOM_ID: data
+:END:
+There are three data sources that we use. The first is the [[https://github.com/Horea94/Fruit-Images-Dataset][Fruit-360]]
+data set which can be downloaded using the [[file:init-data.sh][init-data.sh]] skript. The
+data set is then extracted into the ~image-data/fruit360~ directory.
+
+The second data set is the [[https://www.image-net.org/download.php][ImageNet]] data set from the [[https://www.image-net.org/challenges/LSVRC/index.php][visual
+recognition challenge]]. We only use its test set which should be
+extracted to ~image-data/imagenet/test~.
+** Setup
+:PROPERTIES:
+:CUSTOM_ID: setup
+:END:
+*** [[file:src/babel/imagenet_conceptual_views.org][Compute ImageNet Many-Valued and Symbolic Conceptual Views]]
+:PROPERTIES:
+:CUSTOM_ID: imagenetviews
+:END:
+First, we need to compute the many-valued and symbolic conceptual
+views for the ImageNet data set. The code can be found in
+[[file:src/babel/imagenet_conceptual_views.org][imagenet_conceptual_views.org]].  This results in a representation of
+the objects and classes in a single pseudo metric space.
+#+BEGIN_SRC shell
+python src/tangled/imagenet_conceptual_views.py
+#+END_SRC
+*** [[file:src/babel/fruit_conceptual_views.org][Compute Fruit-360 Many-Valued and Symbolic Conceptual Views]]
+:PROPERTIES:
+:CUSTOM_ID: fruitviews
+:END:
+Next, we need to compute the many-valued and symbolic conceptual views
+for the Fruit-360 data set. The model files were split using the Linux
+command ~split~. The code can be found in [[file:src/babel/fruit_conceptual_views.org][fruit_conceptual_views.org]]
+#+BEGIN_SRC shell
+python src/tangled/fruit_conceptual_views.py
+#+END_SRC
+The code which we used to train these models is located in [[file:src/babel/train_fruits.org][train_fruits.org]].
+** Evaluate Many-Valued Conceptual View
+:PROPERTIES:
+:CUSTOM_ID: eval
+:END:
+*** [[file:src/babel/statistics.org][Statistics]]
+:PROPERTIES:
+:CUSTOM_ID: stats
+:END:
+Statistics on the ImageNet models can be computed using [[file:src/babel/statistics.org][statistics.org]].
+#+BEGIN_SRC shell
+python src/tangled/statistics.py
+#+END_SRC
+
+#+ATTR_ORG: :width 800
+[[file:pics/statistics/statistics.png]]
+
+
+*** [[file:src/babel/fidelity.org][Experiment: Quality by Fidelity]]
+:PROPERTIES:
+:CUSTOM_ID: imagenetfid
+:END:
+We evaluated the quality of the many-valued conceptual views using the
+fidelity of a simple one nearest neighbor classifier in the
+pseudo-metric space and the original model.
+
+#+BEGIN_SRC shell
+python src/tangled/fidelity.py
+#+END_SRC
+Fidelity scores for the ImageNet models:
+#+ATTR_ORG: :width 800
+[[file:pics/fidelity/imagenet_fidelity.png]]
+
+Fidelity scores for the Fruit-360 models:
+#+ATTR_ORG: :width 800
+[[file:pics/fidelity/fruit_fidelity.png]]
+
+*** [[file:src/babel/imagenet_similarity.org][Experiment: ImageNet Model Similarity]]
+:PROPERTIES:
+:CUSTOM_ID: imagenetsim
+:END:
+The pseudo metric space allows for comparing models using
+Gromov-Wasserstein distance. We compare the resulting similarities
+using a pairwise fidelity of the original models.
+
+
+#+BEGIN_SRC shell
+python src/tangled/imagenet_similarity.py
+#+END_SRC
+
+#+ATTR_ORG: :width 800
+[[file:pics/similarity/imagenet_similarity.png]]
+
+** Symbolic Conceptual View
+:PROPERTIES:
+:CUSTOM_ID: sym
+:END:
+*** [[file:src/babel/ablation.org][Ablation Study for Number of Neurons and Choice of Activation Function]]
+:PROPERTIES:
+:CUSTOM_ID: ablation
+:END:
+We conducted an ablation study for the influence of the activation
+function and the number of neurons. We did ten training runs of the
+same architecture for each parameter setting.
+#+BEGIN_SRC shell
+python src/tangled/ablation.py
+#+END_SRC
+
+We evaluated their results using the fidelity of the views.
+
+#+ATTR_ORG: :width 800
+[[file:pics/ablation/ablation_fidelity.png]]
+
+And the shape of the views where we identified the /tanh/ activation
+function to cause the clearest visible separation between negative and
+positive values and highest fidelity scores.
+#+ATTR_ORG: :width 800
+[[file:pics/ablation/ablation_views.png]]
+
+*** [[file:src/babel/fidelity.org][Experiment: Quality by Fidelity]]
+    :PROPERTIES:
+    :CUSTOM_ID: symfid
+    :END:
+We evaluated the quality of the symbolic conceptual views using the
+fidelity of a simple one nearest neighbor classifier using the
+symbolic views and the original model.
+#+BEGIN_SRC shell
+python src/tangled/fidelity.py
+#+END_SRC
+
+Fidelity for the symbolic conceptual views on the ImageNet models:
+#+ATTR_ORG: :width 800
+[[file:pics/fidelity/imagenet_fidelity_symbolic.png]]
+Fidelity for the symbolic conceptual views on the Fruit-360 models:
+#+ATTR_ORG: :width 800
+[[file:pics/fidelity/fruit_fidelity.png]]
+
+*** [[file:src/babel/formal_conceptual_view.org][Formal Concept Analysis]]
+:PROPERTIES:
+:CUSTOM_ID: fca
+:END:
+The code can be found in [[file:src/babel/formal_conceptual_view.org][formal_conceptual_views.org]] and should be
+executed in order in a Clojure REPL.
+
+The first result are the number of formal concepts.
+#+ATTR_ORG: :width 800
+[[file:pics/fca/concept_sizes.png]]
+
+Secondly, we can compute a similarity based on formal concepts. This
+similarity is based on concepts in which two fruits co-occur. For
+example the fruits /Plum/, /Cherry/, /Apple Pink Lady/ and /Apple Red/
+in the VGG16 transfer learned model.
+
+#+ATTR_ORG: :width 800
+[[file:pics/fca/formal_concept_sim.png]]
+
+Using the formal concept analysis, we can zoom in individual fruits in
+the model and how it related other fruits in a hierarchical
+manner. For this, we employ the concept lattice.
+#+ATTR_ORG: :width 800
+[[file:pics/fca/concept_lattice_plum_vgg.png]]
+
+*** [[file:src/babel/abductive_explanation.org][Abductive learning of partial explanations]]
+:PROPERTIES:
+:CUSTOM_ID: subgroup
+:END:
+To derive explanations for the information captured by the neurons, we
+employ subgroup detection for visual and botanic taxon features. The
+code can be found in [[file:src/babel/abductive_explanation.org][abductive_explanation.org]].
+
+#+BEGIN_SRC shell
+python src/tangled/abductive_explanation.py
+#+END_SRC
+
+We provide explanations for neuron 13, as well as, representations for
+the /apple taxon/ and /orange/ color.
+
+#+ATTR_ORG: :width 800
+[[file:pics/subgroup/subgroup.png]]
